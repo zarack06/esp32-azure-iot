@@ -3,7 +3,7 @@
 #include "freertos/task.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
-#include "..\include\config.h"
+#include "config.h"
 #define TAG "AHT10" 
 
 static esp_err_t i2c_master_init(void)

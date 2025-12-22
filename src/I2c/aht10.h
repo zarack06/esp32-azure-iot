@@ -29,7 +29,7 @@ esp_err_t aht10_init(void);
  *      - ESP_FAIL on error
  */
 esp_err_t aht10_read(float *temperature, float *humidity);
-#endif /* AHT10_H */
 #ifdef __cplusplus
 }
 #endif
+#endif /* AHT10_H */

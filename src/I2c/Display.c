@@ -1,9 +1,7 @@
 #include "driver/i2c.h"
 #include "esp_err.h"
 #include "Display.h"
-#include "..\include\config.h"
-
- 
+#include "config.h"
 
 void i2c_master_init()
 {
