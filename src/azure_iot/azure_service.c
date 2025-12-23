@@ -77,26 +77,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG, "Từ Topic: %.*s", event->topic_len, event->topic);
             //  LOGIC XỬ LÝ DỮ LIỆU NHẬN ĐC
             ESP_LOGI(TAG, "NHẬN DỮ LIỆU TỪ AZURE!");
-            printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-            printf("DATA=%.*s\r\n", event->data_len, event->data);
-
-            // Kiểm tra xem có phải lệnh điều khiển "control_led" không
-            if (strncmp(event->topic, "$iothub/methods/POST/control_led", strlen("$iothub/methods/POST/control_led")) == 0) {
-                ESP_LOGW(TAG, "Đang xử lý lệnh control_led...");
-                
-                if (strstr(event->data, "\"status\":1")) {
-                    ESP_LOGW(TAG, "=== LỆNH: BẬT LED ===");
-                    // Thêm code bật GPIO của bạn ở đây
-                } else {
-                    ESP_LOGW(TAG, "=== LỆNH: TẮT LED ===");
-                    // Thêm code tắt GPIO của bạn ở đây
-                }
-
-                // Phản hồi lại cho Azure (Bắt buộc để Azure không báo Timeout)
-                // Trong thực tế cần parse $rid từ topic, nhưng tạm thời gửi response 200 đơn giản
-                char *response_topic = "$iothub/methods/res/200/?$rid=1";
-                esp_mqtt_client_publish(mqtt_handle, response_topic, "{}", 0, 1, 0);
-            }
+            handle_direct_method(event); // Xử lý dữ liệu tại hàm riêng
             break;
 
         case MQTT_EVENT_DISCONNECTED:
