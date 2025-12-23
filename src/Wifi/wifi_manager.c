@@ -9,110 +9,57 @@
 
 #include "esp_sntp.h"
 #include <time.h>
+#define WIFI_CONNECTED_BIT BIT0
 static const char *TAG = "WIFI";
 static bool wifi_started = false;
+static EventGroupHandle_t s_wifi_event_group;
 
-static void wifi_event_handler(
-    void *arg,
-    esp_event_base_t event_base,
-    int32_t event_id,
-    void *event_data)
-{
+// Hàm xử lý sự kiện Wi-Fi
+static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        wifi_started = false;
-        ESP_LOGW(TAG, "WiFi disconnected, retrying...");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         esp_wifi_connect();
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        wifi_started = true;
-        ESP_LOGI(TAG, "WiFi connected, got IP");
+        ESP_LOGI(TAG, "Đang thử kết nối lại Wi-Fi...");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
-static void obtain_time(void)
-{
-    ESP_LOGI("SNTP", "Initializing SNTP");
 
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
-    esp_sntp_init();
-
-    time_t now = 0;
-    struct tm timeinfo = { 0 };
-    int retry = 0;
-    const int retry_count = 10;
-
-    while (timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count)
-    {
-        ESP_LOGI("SNTP", "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        time(&now);
-        localtime_r(&now, &timeinfo);
-    }
-
-    if (retry == retry_count)
-    {
-        ESP_LOGE("SNTP", "Failed to get time");
-    }
-    else
-    {
-        ESP_LOGI("SNTP", "Time synced: %s", asctime(&timeinfo));
-    }
-    ESP_LOGI("TIME", "Unix time: %ld", now);
-}
-void wifi_init_sta(void)
-{
-    if (wifi_started) return;
-
-    ESP_ERROR_CHECK(nvs_flash_init());
+// Khởi tạo Wi-Fi
+void wifi_init(void) {
+    s_wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
     esp_netif_create_default_wifi_sta();
-
-    ESP_ERROR_CHECK(esp_event_handler_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
-
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASS,
-        },
-    };
-
+    esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, NULL);
+    esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, NULL);
+    wifi_config_t wifi_config = {};
+    strcpy((char*)wifi_config.sta.ssid, WIFI_SSID);
+    strcpy((char*)wifi_config.sta.password, WIFI_PASS);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    obtain_time();
-    wifi_started = true;
-    
-    ESP_LOGI(TAG, "WiFi started");
+    xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+    ESP_LOGI(TAG, "Wi-Fi đã kết nối thành công!");
 }
-bool wifi_wait_connected(unsigned long timeout_ms)
-{
-    unsigned long start = xTaskGetTickCount();
-
-    while (!wifi_manager_is_connected())
-    {
-        if ((xTaskGetTickCount() - start) > pdMS_TO_TICKS(timeout_ms))
-            return false;
-
-        vTaskDelay(pdMS_TO_TICKS(500));
+// Đồng bộ thời gian qua SNTP (Azure bắt buộc phải có thời gian đúng)
+void time_sync_init(void) {
+    ESP_LOGI(TAG, "Đang lấy thời gian từ Internet...");
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_init();
+    time_t now = 0;
+    struct tm timeinfo = {};
+    while (timeinfo.tm_year < (2024 - 1900)) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        time(&now);
+        localtime_r(&now, &timeinfo);
     }
-    return true;
+    ESP_LOGI(TAG, "Thời gian hiện tại: %s", asctime(&timeinfo));
 }
-
 bool wifi_manager_is_connected(void)
 {
     wifi_ap_record_t ap_info;
