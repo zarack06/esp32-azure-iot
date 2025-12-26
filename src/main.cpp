@@ -48,7 +48,7 @@ void sensor_telemetry_task(void *pvParameters) {
                 oled_put_string_5x7(3, 0, payload);
                 sprintf(payload, "Humid: %.2f %%", hum);
                 oled_put_string_5x7(4, 0, payload);
-                
+                vTaskDelay(pdMS_TO_TICKS(50));
                 // 2. Gửi Telemetry
                 send_telemetry(temp, hum);
                 ESP_LOGI("APP", "Data sent to Azure");
@@ -69,7 +69,7 @@ extern "C" void app_main(void) {
     
     // 2. Cấu hình Azure & Đăng ký callback
     setup_azure();
-    azure_service_register_led_callback(my_hardware_control);
+    azure_service_register_led_callback(my_hardware_control);// nhận lệnh từ azure 
     start_azure_mqtt();
 
     // 3. Phần cứng
@@ -77,7 +77,6 @@ extern "C" void app_main(void) {
     oled_init();
     oled_clear();
     oled_put_string_5x7(0, 0, "Azure IoT Ready");
-
     // 4. Tạo Task chạy ngầm cho Telemetry
     // Task này sẽ chạy song song, không ảnh hưởng đến việc nhận lệnh MQTT
     xTaskCreate(sensor_telemetry_task, "sensor_task", 4096, NULL, 5, NULL);
