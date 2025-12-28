@@ -6,12 +6,18 @@
 #include <stdbool.h>
 #ifdef __cplusplus
 extern "C" {
-#endif  
-void setup_azure(void);
-void start_azure_mqtt(void);
-void send_telemetry(float temperature, float humidity);
-bool is_mqtt_connected_func(void);
+#endif 
+
+void azure_service_init(void);
+
+/* Azure IoT gọi vào */
+void azure_service_on_mqtt_message(
+    const char *topic, int topic_len,
+    const char *payload, int payload_len);
+
+/* App đăng ký */
 void azure_service_register_led_callback(void (*cb)(int));
+
 #ifdef __cplusplus
 }
 #endif
