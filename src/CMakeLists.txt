@@ -10,7 +10,7 @@ idf_component_register(SRCS "main.cpp"
                         "I2c/Display.c"
                         "system_init.c"
                         "Wifi/wifi_manager.c"
-                        "azure_iot\azure_service.c"
+                        "azure_iot/azure_service.c"
                         "text/oled_text.c"  # Thêm file .c chứa hàm oled_put_string
                     INCLUDE_DIRS "."
                                  "I2c" 
