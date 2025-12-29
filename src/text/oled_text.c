@@ -1,6 +1,6 @@
 #include "oled_text.h"
-#include "../Oled/oled.h"
-#include "../fonts/font5x7.h" 
+#include "Oled/oled.h"
+#include "fonts/font5x7.h" 
 #ifdef __cplusplus
 extern "C" {    
 #endif

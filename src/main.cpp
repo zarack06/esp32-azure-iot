@@ -1,83 +1,43 @@
  
-//===========================================================================
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h> 
-#include "esp_log.h" 
-#include "config.h"
+//===========================================================================  
+#include "esp_log.h"  
  
 // Azure IoT Middleware headers
-extern "C" {
-    #include "az_iot_hub_client.h"
-    #include "az_result.h"
-    #include "az_span.h"
-    #include "mqtt_client.h"
-    /* ================= I2C ================= */
-    #include "oled_text.h"
-    #include "oled.h"
-    #include "Display.h"
+extern "C" { 
+    /* ================= I2C ================= */ 
+    #include "oled.h" 
     #include "aht10.h"
     #include "azure_service.h"
     #include "wifi_manager.h"
     #include "system_init.h"
+    #include "azure_iot/azure_iot.h"
+    #include "hardware_action/led.h"
+    #include "sensor/sensor_task.h"
+    #include "telemetry/telemetry_task.h"
 }
-static const char *TAG = "AZURE_IOT_ESP32";
-// Hàm callback xử lý lệnh LED (được gọi từ Azure Task) 
-void my_hardware_control(int status) {
-    if (status == 1) {
-        // Thực hiện bật LED 
-        oled_put_string_5x7(6, 0, "LED Status: ON ");
-         ESP_LOGI("AzureContral", "LED ON");
-    } else {
-        // Thực hiện tắt LED 
-        oled_put_string_5x7(6, 0, "LED Status: OFF");
-        ESP_LOGI("AzureContral", "LED OFF");
-    }
-}
+static const char *TAG = "AZURE_IOT_ESP32"; 
 
-//  Đọc Sensor -> Update OLED -> Gửi Azure
-void sensor_telemetry_task(void *pvParameters) {
-    float temp, hum;
-    char payload[32];
-    
-    while (1) {
-        if (is_mqtt_connected_func()) {
-            if (aht10_read(&temp, &hum) == ESP_OK) {
-                // 1. Cập nhật OLED
-                sprintf(payload, "Temp: %.2f C", temp);
-                oled_put_string_5x7(3, 0, payload);
-                sprintf(payload, "Humid: %.2f %%", hum);
-                oled_put_string_5x7(4, 0, payload);
-                vTaskDelay(pdMS_TO_TICKS(50));
-                // 2. Gửi Telemetry
-                send_telemetry(temp, hum);
-                ESP_LOGI("APP", "Data sent to Azure");
-            }
-        }
-        
-        // Gửi mỗi 20 giây  
-        vTaskDelay(pdMS_TO_TICKS(20000));
-    }
-}
-
-void azure_service_register_led_callback(void (*cb)(int status));
 extern "C" void app_main(void) {
 
-    system_init();
-    wifi_init();      
-    time_sync_init(); 
-    
-    // 2. Cấu hình Azure & Đăng ký callback
-    setup_azure();
-    azure_service_register_led_callback(my_hardware_control);// nhận lệnh từ azure 
-    start_azure_mqtt();
-
-    // 3. Phần cứng
-    aht10_init();
+    system_init();  
+    vTaskDelay(pdMS_TO_TICKS(100)); // Đợi I2C bus ổn định
+    if (aht10_init() != ESP_OK) {
+        ESP_LOGW(TAG, "AHT10 chưa sẵn sàng, Task sẽ thử lại sau...");
+    }
     oled_init();
     oled_clear();
-    oled_put_string_5x7(0, 0, "Azure IoT Ready");
-    // 4. Tạo Task chạy ngầm cho Telemetry
-    // Task này sẽ chạy song song, không ảnh hưởng đến việc nhận lệnh MQTT
-    xTaskCreate(sensor_telemetry_task, "sensor_task", 4096, NULL, 5, NULL);
+    // 2. ƯU TIÊN: Chạy Task Cảm biến và OLED trước   
+    wifi_init();      
+    time_sync_init(); 
+    // 2. Cấu hình Azure & Đăng ký callback
+    azure_service_init();               // (1) logic nghiệp vụ
+    azure_iot_init();                   // (2) Azure IoT client
+    azure_service_register_led_callback(hardware_led_set);// nhận lệnh từ azure 
+    azure_iot_start();                  // (3) MQTT connect
+    // Task gửi Azure (Ưu tiên thấp hơn) 
+
+ //=====================
+
+    QueueHandle_t q = sensor_task_start();
+    telemetry_task_start(q); 
 }

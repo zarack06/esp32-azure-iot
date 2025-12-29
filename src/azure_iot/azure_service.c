@@ -1,10 +1,20 @@
-#include "azure_service.h"
-#include "esp_log.h"
+#include <stdio.h>
 #include <string.h>
+
+#include "esp_log.h"
+#include "azure_iot/azure_iot.h"
 
 #define TAG "AZURE_SERVICE"
 
 static void (*led_cb)(int) = NULL;
+
+static void extract_rid(const char *topic, char *rid, size_t len)
+{
+    const char *p = strstr(topic, "$rid=");
+    if (!p || len == 0) return;
+
+    snprintf(rid, len, "%s", p + 5);
+}
 
 void azure_service_register_led_callback(void (*cb)(int))
 {
@@ -31,7 +41,14 @@ static void handle_direct_method(
         led_cb(status);
     }
 
-    /* TODO: parse real $rid */
+    char rid[16] = {0};
+    extract_rid(topic, rid, sizeof(rid));
+
+    char resp_topic[64];
+    snprintf(resp_topic, sizeof(resp_topic),
+             "$iothub/methods/res/200/?$rid=%s", rid);
+
+    azure_iot_publish(resp_topic, "{}");
 }
 
 /* ================= ENTRY POINT ================= */

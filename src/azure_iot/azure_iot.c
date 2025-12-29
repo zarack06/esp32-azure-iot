@@ -106,8 +106,61 @@ void azure_iot_send_telemetry(float temp, float hum)
     esp_mqtt_client_publish(mqtt_handle,
                             topic, payload, 0, 1, 0);
 }
+void azure_iot_send_telemetry_raw(const char *payload) {
+    if (!is_mqtt_connected || payload == NULL) return;
 
+    char topic[256];
+    // "$.ct=application%2Fjson&$.ce=utf-8" là từ khóa để Azure tự giải mã Base64
+    const char* property_bag = "$.ct=application%2Fjson&$.ce=utf-8";
+    // Tự lấy topic nội bộ 
+    az_result res = az_iot_hub_client_telemetry_get_publish_topic(
+        &client, 
+        NULL, 
+        topic, 
+        sizeof(topic), 
+        NULL);
+        
+   if (az_result_succeeded(res)) {
+        // 2. Tính toán độ dài hiện tại của topic
+        size_t current_len = strlen(topic);
+
+        // 3. Sử dụng snprintf để nối chuỗi an toàn
+        // Ta ghi đè từ vị trí topic + current_len
+        int written = snprintf(topic + current_len, 
+                               sizeof(topic) - current_len, 
+                               "%s", 
+                               property_bag);
+
+        // 4. Kiểm tra xem việc nối chuỗi có bị cắt cụt (truncated) không
+        if (written >= (sizeof(topic) - current_len)) {
+            ESP_LOGE("AZURE", "Topic buffer quá nhỏ để chứa Metadata!");
+            return; 
+        }
+
+        // 5. Publish
+        esp_mqtt_client_publish(mqtt_handle, topic, payload, 0, 1, 0);
+        ESP_LOGD("AZURE", "Topic: %s", topic);
+    } else {
+        ESP_LOGE("AZURE", "Lỗi lấy topic từ Azure SDK");
+    };
+    // Gọi lại hàm publish 
+    azure_iot_publish(topic, payload);
+     ESP_LOGE(TAG, "send finish %s",payload);
+}
 bool azure_iot_is_connected(void)
 {
     return is_mqtt_connected;
+}
+void azure_iot_publish(const char *topic, const char *payload)
+{
+    if (!is_mqtt_connected) return;
+
+    esp_mqtt_client_publish(
+        mqtt_handle,
+        topic,
+        payload,
+        0,
+        1,
+        0);
+        ESP_LOGI("AZURE", "Sent with Metadata: %s", topic);
 }
