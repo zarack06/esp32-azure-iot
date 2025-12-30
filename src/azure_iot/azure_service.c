@@ -1,8 +1,7 @@
-#include <stdio.h>
-#include <string.h>
-
+#include <stdio.h>  
 #include "esp_log.h"
 #include "azure_iot/azure_iot.h"
+#include "azure_iot/azure_tx_task.h"
 
 #define TAG "AZURE_SERVICE"
 
@@ -11,9 +10,21 @@ static void (*led_cb)(int) = NULL;
 static void extract_rid(const char *topic, char *rid, size_t len)
 {
     const char *p = strstr(topic, "$rid=");
-    if (!p || len == 0) return;
+    if (!p) return;
 
-    snprintf(rid, len, "%s", p + 5);
+    p += 5; // Nhảy qua chuỗi "$rid=" 
+
+    int i = 0;
+    //   Gặp ký tự không phải là chữ/số (như dấu '{' của payload) 
+    while (i < len) {
+        // Nếu gặp ký tự đặc biệt (không phải chữ số/chữ cái) thì dừng
+        if (p[i] == '{' || p[i] == '&' || p[i] == ' ' || p[i] == '\r' || p[i] == '\n') {
+            break;
+        }
+        rid[i] = p[i];
+        i++;
+    } 
+     ESP_LOGI(TAG, "rid %s", rid);
 }
 
 void azure_service_register_led_callback(void (*cb)(int))
@@ -46,9 +57,11 @@ static void handle_direct_method(
 
     char resp_topic[64];
     snprintf(resp_topic, sizeof(resp_topic),
-             "$iothub/methods/res/200/?$rid=%s", rid);
-
-    azure_iot_publish(resp_topic, "{}");
+             "$iothub/methods/res/200/?$rid=%s", rid); 
+     char resp_payload[32];
+    snprintf(resp_payload, sizeof(resp_payload),
+         "{\"result\":\"da chuyen led\"}");  // string send to azure after action 
+    azure_tx_send_topic(resp_topic, resp_payload);  // đợi thay thế
 }
 
 /* ================= ENTRY POINT ================= */

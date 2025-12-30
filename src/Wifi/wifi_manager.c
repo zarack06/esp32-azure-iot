@@ -5,7 +5,7 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
-#include "..\include\config.h"
+#include "config.h"
 
 #include "esp_sntp.h"
 #include <time.h>
@@ -70,7 +70,7 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-
+    esp_wifi_set_ps(WIFI_PS_NONE); // Tắt Power Save Mode
     // Chờ cho đến khi kết nối được (bất kể wifi nào)
     xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
     ESP_LOGI(TAG, "Wi-Fi đã kết nối thành công!");

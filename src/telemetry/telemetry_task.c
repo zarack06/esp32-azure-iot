@@ -6,22 +6,25 @@
 #include "oled.h"
 #include "oled_text.h"
 #include "telemetry_task.h"
-
+#include "azure_iot/azure_tx_task.h"
 static QueueHandle_t queue;
 
 static void telemetry_task(void *pv) {
     sensor_data_t data;
     char total_payload[512]; 
-
+    int tick = 0;
     while (1) {
+        int offset = 0;
+        int sent_count = 0;
         // Đợi 30 giây
-        vTaskDelay(pdMS_TO_TICKS(30000));
-
+        vTaskDelay(pdMS_TO_TICKS(100)); // ngủ rất ngắn
+        tick++;
+        if (tick < 300) continue; // đủ 30s mới kiểm tra
+        tick = 0;
         // CHỈ LÀM VIỆC KHI CÓ DỮ LIỆU TRONG QUEUE
-        int msg_waiting = uxQueueMessagesWaiting(queue);
-        if (azure_iot_is_connected() && msg_waiting > 0) {
-            
-            int offset = 0;
+        if (!azure_iot_is_connected()) continue;
+        if (uxQueueMessagesWaiting(queue) == 0) continue;
+             
             // 1. Ghi dấu mở mảng
             offset += snprintf(total_payload + offset, sizeof(total_payload) - offset, "[");
             
@@ -34,8 +37,10 @@ static void telemetry_task(void *pv) {
                 
                 if (written < remaining) {
                     offset += written;
+                    sent_count++;
                     first = false;
                 } else {
+                    ESP_LOGI("AZURE", "tràn bộ đệm= %d", written); 
                     break; // Tràn bộ đệm
                 }
             }
@@ -45,13 +50,9 @@ static void telemetry_task(void *pv) {
                 snprintf(total_payload + offset, sizeof(total_payload) - offset, "]");
             }
 
-            // 3. Gửi đi
-            azure_iot_send_telemetry_raw(total_payload);
-            ESP_LOGI("AZURE", "Gửi thành công %d bản ghi", msg_waiting);
-            
-        } else if (msg_waiting == 0) {
-            ESP_LOGD("AZURE", "Queue trống, không có gì để gửi.");
-        }
+            // 3. Gửi vào queue
+            azure_tx_send_telemetry(total_payload); 
+            ESP_LOGI("AZURE", "Gửi thành công %d bản ghi", sent_count); 
     }
 }
 
