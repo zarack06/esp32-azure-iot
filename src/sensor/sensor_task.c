@@ -21,10 +21,10 @@ static void sensor_reading_task(void *pvParameters)
         if (aht10_read(&data.temperature, &data.humidity) == ESP_OK) {
 
             snprintf(buf, sizeof(buf), "T: %.2f C       ", data.temperature);
-            oled_put_string_5x7(3, 0, buf);
+            oled_put_string_5x7(5, 0, buf);
 
             snprintf(buf, sizeof(buf), "Hum: %.2f %%        ", data.humidity);
-            oled_put_string_5x7(4, 0, buf);
+            oled_put_string_5x7(6, 0, buf);
 
             if (last_read_temp != -999.0 &&
                 fabs(data.temperature - last_read_temp) > 0.5)

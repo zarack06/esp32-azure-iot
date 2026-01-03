@@ -1,12 +1,11 @@
-
-
 #include "azure_iot.h"
 #include "azure_service.h"
 #include "esp_log.h"
 #include "mqtt_client.h"
 #include "az_iot_hub_client.h"
 #include "config.h"
-
+#include "azure_iot_internal.h"
+#include "helper_time.h"
 #define TAG "AZURE_IOT"
 
 static az_iot_hub_client client;
@@ -39,6 +38,7 @@ static void mqtt_event_handler(void *handler_args,
     case MQTT_EVENT_DISCONNECTED:
         is_mqtt_connected = false;
         ESP_LOGW(TAG, "MQTT disconnected");
+        set_last_error("MQTT Lost!");
         break;
 
     default:
@@ -60,7 +60,8 @@ void azure_iot_init(void)
         &options);
 
     if (az_result_failed(res)) {
-        ESP_LOGE(TAG, "Azure client init failed");
+        ESP_LOGE(TAG, "Azu client init failed");
+        set_last_error("Azu client failed");
     }
 }
 
@@ -83,33 +84,14 @@ void azure_iot_start(void)
 
     mqtt_handle = esp_mqtt_client_init(&cfg);
     esp_mqtt_client_register_event(
-        mqtt_handle, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+        mqtt_handle, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);  // đăng ký nhận lệnh điều khiển
     esp_mqtt_client_start(mqtt_handle);
 }
-
-/* ================= TELEMETRY ================= */
-
-void azure_iot_send_telemetry(float temp, float hum)
-{
-    if (!is_mqtt_connected) return;
-
-    char topic[128];
-    char payload[128];
-
-    az_iot_hub_client_telemetry_get_publish_topic(
-        &client, NULL, topic, sizeof(topic), NULL);
-
-    snprintf(payload, sizeof(payload),
-             "{\"temperature\":%.2f,\"humidity\":%.2f}",
-             temp, hum);
-
-    esp_mqtt_client_publish(mqtt_handle,
-                            topic, payload, 0, 1, 0);
-}
-void azure_iot_send_telemetry_raw(const char *payload) {
-    if (!is_mqtt_connected || payload == NULL) return;
-
+ 
+void azure_iot_publish_payload(const char *payload) {
+    static az_result last_err = AZ_OK;
     char topic[256];
+    if (!is_mqtt_connected || payload == NULL) return;
     // "$.ct=application%2Fjson&$.ce=utf-8" là từ khóa để Azure tự giải mã Base64
     const char* property_bag = "$.ct=application%2Fjson&$.ce=utf-8";
     // Tự lấy topic nội bộ 
@@ -119,42 +101,39 @@ void azure_iot_send_telemetry_raw(const char *payload) {
         topic, 
         sizeof(topic), 
         NULL);
-        
-   if (az_result_succeeded(res)) {
-        // 2. Tính toán độ dài hiện tại của topic
-        size_t current_len = strlen(topic);
 
-        // 3. Sử dụng snprintf để nối chuỗi an toàn
-        // Ta ghi đè từ vị trí topic + current_len
-        int written = snprintf(topic + current_len, 
-                               sizeof(topic) - current_len, 
-                               "%s", 
-                               property_bag);
-
-        // 4. Kiểm tra xem việc nối chuỗi có bị cắt cụt (truncated) không
-        if (written >= (sizeof(topic) - current_len)) {
-            ESP_LOGE("AZURE", "Topic buffer quá nhỏ để chứa Metadata!");
-            return; 
+    if (!az_result_succeeded(res)) {
+        if (last_err != res) {
+            ESP_LOGW(TAG,"Telemetry topic error changed: 0x%08x",res);
+            last_err = res;
         }
+        return;
+    }
+    last_err = AZ_OK; 
+    // 2. Tính toán độ dài hiện tại của topic
+    size_t current_len = strlen(topic);
 
-        // 5. Publish
-        esp_mqtt_client_publish(mqtt_handle, topic, payload, 0, 1, 0);
-        ESP_LOGD("AZURE", "Topic: %s", topic);
-    } else {
-        ESP_LOGE("AZURE", "Lỗi lấy topic từ Azure SDK");
-    };
-    // Gọi lại hàm publish 
-    azure_iot_publish(topic, payload);
-     ESP_LOGE(TAG, "send finish %s",payload);
+    // 3. Sử dụng snprintf để nối chuỗi an toàn
+    // Ta ghi đè từ vị trí topic + current_len
+    int written = snprintf(topic + current_len, 
+                            sizeof(topic) - current_len, 
+                            "%s", 
+                            property_bag);
+
+    // 4. Kiểm tra xem việc nối chuỗi có bị cắt cụt (truncated) không
+    if (written >= (sizeof(topic) - current_len)) {
+        ESP_LOGE("AZURE", "Topic buffer quá nhỏ để chứa Metadata!");
+        set_last_error("buffer Full");
+        return; 
+    }
+    // 5. Publish
+    esp_mqtt_client_publish(mqtt_handle, topic, payload, 0, 1, 0);  
 }
-bool azure_iot_is_connected(void)
-{
-    return is_mqtt_connected;
-}
-void azure_iot_publish(const char *topic, const char *payload)
+ 
+void azure_iot_publish_topic(const char *topic, const char *payload)
 {
     if (!is_mqtt_connected) return;
-
+    
     esp_mqtt_client_publish(
         mqtt_handle,
         topic,
@@ -162,5 +141,12 @@ void azure_iot_publish(const char *topic, const char *payload)
         0,
         1,
         0);
-        ESP_LOGI("AZURE", "Sent with Metadata: %s", topic);
 }
+
+bool azure_iot_is_connected(void)
+{
+    return is_mqtt_connected;
+} 
+
+
+ 

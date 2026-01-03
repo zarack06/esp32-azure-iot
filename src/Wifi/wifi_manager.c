@@ -5,8 +5,8 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
-#include "..\include\config.h"
-
+#include "config.h"
+#include "helper_time.h"
 #include "esp_sntp.h"
 #include <time.h>
 #define WIFI_CONNECTED_BIT BIT0
@@ -26,6 +26,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             esp_wifi_connect();
             s_retry_count++;
             ESP_LOGI(TAG, "Đang thử kết nối lại lần %d...", s_retry_count);
+            set_last_error("wifi dis");
         } else {
             // Đã thử quá số lần, chuyển sang wifi khác
             s_retry_count = 0;
@@ -70,7 +71,7 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-
+    esp_wifi_set_ps(WIFI_PS_NONE); // Tắt Power Save Mode
     // Chờ cho đến khi kết nối được (bất kể wifi nào)
     xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
     ESP_LOGI(TAG, "Wi-Fi đã kết nối thành công!");
