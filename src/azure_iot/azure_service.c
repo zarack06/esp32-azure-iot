@@ -10,6 +10,7 @@ static void (*led_cb)(int) = NULL;
 static void extract_rid(const char *topic, char *rid, size_t len)
 {
     const char *p = strstr(topic, "$rid=");
+    memset(rid, 0, len);
     if (!p) return;
 
     p += 5; // Nhảy qua chuỗi "$rid=" 
@@ -56,11 +57,11 @@ static void handle_direct_method(
     extract_rid(topic, rid, sizeof(rid));
 
     char resp_topic[64];
-    snprintf(resp_topic, sizeof(resp_topic),
-             "$iothub/methods/res/200/?$rid=%s", rid); 
-     char resp_payload[32];
-    snprintf(resp_payload, sizeof(resp_payload),
-         "{\"result\":\"da chuyen led\"}");  // string send to azure after action 
+    snprintf(resp_topic, sizeof(resp_topic), "$iothub/methods/res/200/?$rid=%s", rid); 
+    
+    // Phản hồi bằng JSON
+    char resp_payload[64];
+    snprintf(resp_payload, sizeof(resp_payload), "{\"status\":\"success\", \"msg\":\"LED is %s\"}", status ? "ON" : "OFF");
     azure_tx_send_topic(resp_topic, resp_payload);  // đợi thay thế
 }
 

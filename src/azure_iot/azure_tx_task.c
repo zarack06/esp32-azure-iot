@@ -5,7 +5,8 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include <string.h>
-
+#include "azure_iot_internal.h"
+#include "helper_time.h"
 #define TAG "AZURE_TX"
 
 static QueueHandle_t azure_tx_queue = NULL;
@@ -26,6 +27,7 @@ static void azure_tx_task(void *pv)
             if (!azure_iot_is_connected())
             {
                 ESP_LOGW(TAG, "Azure not connected, drop message");
+                set_last_error("Azure dis, drop mes");
                 continue;
             }
 
@@ -45,8 +47,7 @@ static void azure_tx_task(void *pv)
                 azure_iot_publish_payload(msg.payload);
                 ESP_LOGI(TAG, "Telemetry sent");
             }
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        } 
     }
 } 
 

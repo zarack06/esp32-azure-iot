@@ -6,7 +6,8 @@
 #include "oled.h"
 #include "oled_text.h"
 #include "telemetry_task.h"
-#include "azure_iot/azure_tx_task.h"
+#include "azure_tx_task.h"
+
 static QueueHandle_t queue;
 
 static void telemetry_task(void *pv) {

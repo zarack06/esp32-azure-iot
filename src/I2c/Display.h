@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-void i2c_master_init(void);
+esp_err_t i2c_master_display_init(void);
 #ifdef __cplusplus
 }
 #endif

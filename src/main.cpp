@@ -10,11 +10,13 @@ extern "C" {
     #include "azure_service.h"
     #include "wifi_manager.h"
     #include "system_init.h"
-    #include "azure_iot/azure_iot.h"
+    #include "azure_iot.h"
     #include "hardware_action/led.h"
-    #include "sensor/sensor_task.h"
+    #include "sensor_task.h"
     #include "telemetry/telemetry_task.h"
-    #include "azure_iot/azure_tx_task.h"
+    #include "azure_tx_task.h"
+    #include "helper_time.h"
+    #include "i2c_manager.h"
      
 }
 static const char *TAG = "AZURE_IOT_ESP32"; 
@@ -22,6 +24,8 @@ static const char *TAG = "AZURE_IOT_ESP32";
 extern "C" void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
     system_init();  
+    
+    i2c_manager_init();    // 1. khởi động i2c bus
     vTaskDelay(pdMS_TO_TICKS(100)); // Đợi I2C bus ổn định
     if (aht10_init() != ESP_OK) {
         ESP_LOGW(TAG, "AHT10 chưa sẵn sàng, Task sẽ thử lại sau...");
@@ -42,4 +46,5 @@ extern "C" void app_main(void) {
     azure_tx_task_start(); 
     QueueHandle_t q = sensor_task_start();
     telemetry_task_start(q); 
+    xTaskCreate(oled_update_err, "oled_err_task", 4096, NULL, 3, NULL);
 }

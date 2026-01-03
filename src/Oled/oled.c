@@ -1,41 +1,54 @@
 // oled.c
-#include "oled.h"
-#include <stdio.h> 
+ 
+// #include <stdio.h> 
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/i2c.h"
-#include "esp_log.h"
-#include "config.h"
-/* ================= OLED low level ================= */
+#include "freertos/task.h" 
+// #include "esp_log.h"
+#include "config.h" 
 
-void oled_cmd(uint8_t cmd)
+#include "oled.h"
+#include <string.h>
+#include "driver/i2c_master.h"
+#include "i2c_manager.h" // Nơi chứa global_i2c_bus_handle
+
+static i2c_master_dev_handle_t oled_dev_handle = NULL;
+
+// Hàm đăng ký OLED vào Bus (Gọi cái này thay vì i2c_driver_install)
+static void oled_register_device() {
+    if (oled_dev_handle != NULL) return; // Đã đăng ký rồi
+
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = 0x3C, // Địa chỉ OLED
+        .scl_speed_hz = 400000, // OLED chạy nhanh 400kHz cho mượt
+    };
+    i2c_master_bus_add_device(global_i2c_bus_handle, &dev_cfg, &oled_dev_handle);
+}
+
+static void oled_cmd(uint8_t cmd)
 {
-    i2c_cmd_handle_t handle = i2c_cmd_link_create();
-    i2c_master_start(handle);
-    i2c_master_write_byte(handle, (OLED_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(handle, 0x00, true); // command
-    i2c_master_write_byte(handle, cmd, true);
-    i2c_master_stop(handle);
-    i2c_master_cmd_begin(I2C_MASTER_NUM, handle, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(handle);
+    uint8_t buf[2] = {0x00, cmd}; // 0x00 là Control Byte cho lệnh
+    i2c_master_transmit(oled_dev_handle, buf, 2, 100);
 }
 
 void oled_data(uint8_t *data, size_t len)
 {
-    i2c_cmd_handle_t handle = i2c_cmd_link_create();
-    i2c_master_start(handle);
-    i2c_master_write_byte(handle, (OLED_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(handle, 0x40, true); // data
-    i2c_master_write(handle, data, len, true);
-    i2c_master_stop(handle);
-    i2c_master_cmd_begin(I2C_MASTER_NUM, handle, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(handle);
+    // Tạo một buffer tĩnh, chỉ cấp phát 1 lần duy nhất khi khởi động
+    static uint8_t oled_buffer[129]; 
+
+    if (len > 128) len = 128; // Bảo vệ chống tràn mảng
+
+    oled_buffer[0] = 0x40; // Control byte
+    memcpy(&oled_buffer[1], data, len);
+    
+    i2c_master_transmit(oled_dev_handle, oled_buffer, len + 1, 100);
 }
-
 /* ================= OLED init ================= */
-
 void oled_init()
 {
+    // 1. Phải đăng ký thiết bị trước khi gửi lệnh
+    oled_register_device();
+
     vTaskDelay(pdMS_TO_TICKS(100));
 
     oled_cmd(0xAE); // display off
@@ -57,6 +70,8 @@ void oled_init()
     oled_cmd(0xDB); oled_cmd(0x40);
     oled_cmd(0x8D); oled_cmd(0x14);
     oled_cmd(0xAF); // display ON
+    
+    oled_clear(); // Xóa màn hình ngay sau khi bật
 } 
 /* ================= OLED text ================= */
 
