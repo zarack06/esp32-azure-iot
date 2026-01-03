@@ -6,7 +6,7 @@
 #include "esp_netif.h"
 #include "nvs_flash.h"
 #include "config.h"
-
+#include "helper_time.h"
 #include "esp_sntp.h"
 #include <time.h>
 #define WIFI_CONNECTED_BIT BIT0
@@ -26,6 +26,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             esp_wifi_connect();
             s_retry_count++;
             ESP_LOGI(TAG, "Đang thử kết nối lại lần %d...", s_retry_count);
+            set_last_error("wifi dis");
         } else {
             // Đã thử quá số lần, chuyển sang wifi khác
             s_retry_count = 0;
