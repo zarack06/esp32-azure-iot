@@ -16,7 +16,7 @@ void azure_service_on_mqtt_message(
     const char *payload, int payload_len);
 
 /* App đăng ký */
-void azure_service_register_led_callback(void (*cb)(int));
+void azure_service_register_led_callback(void (*cb)(int status, const char* place, int time));
 
 #ifdef __cplusplus
 }

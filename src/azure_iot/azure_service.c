@@ -1,11 +1,12 @@
 #include <stdio.h>  
+#include "cJSON.h"
 #include "esp_log.h"
 #include "azure_iot/azure_iot.h"
 #include "azure_iot/azure_tx_task.h"
 
 #define TAG "AZURE_SERVICE"
 
-static void (*led_cb)(int) = NULL;
+static void (*led_cb)(int status, const char* place, int time) = NULL;
 
 static void extract_rid(const char *topic, char *rid, size_t len)
 {
@@ -28,7 +29,7 @@ static void extract_rid(const char *topic, char *rid, size_t len)
      ESP_LOGI(TAG, "rid %s", rid);
 }
 
-void azure_service_register_led_callback(void (*cb)(int))
+void azure_service_register_led_callback(void (*cb)(int status, const char* place, int time))
 {
     led_cb = cb;
 }
@@ -40,29 +41,50 @@ void azure_service_init(void)
 
 /* ================= DIRECT METHOD ================= */
 
-static void handle_direct_method(
-    const char *topic, const char *payload)
+
+static void handle_direct_method(const char *topic, const char *payload)
 {
     if (!strstr(topic, "control_led")) return;
 
-    int status = strstr(payload, "\"status\":1") ? 1 : 0;
-
-    ESP_LOGI(TAG, "LED command: %d", status);
-
-    if (led_cb) {
-        led_cb(status);
+    // 1. Parse chuỗi JSON
+    cJSON *root = cJSON_Parse(payload);
+    if (root == NULL) {
+        ESP_LOGE(TAG, "JSON Parse Error");
+        return;
     }
 
+    // 2. Lấy dữ liệu từ các key
+    // Lưu ý: Tôi dùng "sttus" giống như chuỗi bạn đưa ra (có vẻ bạn gõ thiếu chữ 'a')
+    cJSON *status_obj = cJSON_GetObjectItem(root, "sttus");
+    cJSON *place_obj  = cJSON_GetObjectItem(root, "place");
+    cJSON *time_obj   = cJSON_GetObjectItem(root, "time");
+
+    int status = (status_obj && cJSON_IsNumber(status_obj)) ? status_obj->valueint : 0;
+    int time   = (time_obj && cJSON_IsNumber(time_obj))     ? time_obj->valueint   : 0;
+    char *place = (place_obj && cJSON_IsString(place_obj))  ? place_obj->valuestring : "unknown";
+
+    ESP_LOGI(TAG, "Azure Command -> Status: %d, Place: %s, Time: %d", status, place, time);
+
+    // 3. Thực thi callback LED
+    if (led_cb) {
+        led_cb(status, place, time);
+    }
+
+    // --- Giữ nguyên phần phản hồi RID của bạn ---
     char rid[16] = {0};
     extract_rid(topic, rid, sizeof(rid));
-
     char resp_topic[64];
     snprintf(resp_topic, sizeof(resp_topic), "$iothub/methods/res/200/?$rid=%s", rid); 
     
-    // Phản hồi bằng JSON
-    char resp_payload[64];
-    snprintf(resp_payload, sizeof(resp_payload), "{\"status\":\"success\", \"msg\":\"LED is %s\"}", status ? "ON" : "OFF");
-    azure_tx_send_topic(resp_topic, resp_payload);  // đợi thay thế
+    char resp_payload[128]; // Tăng kích thước buffer vì nội dung dài hơn
+    snprintf(resp_payload, sizeof(resp_payload), 
+             "{\"status\":\"success\", \"place\":\"%s\", \"time_set\":%d}", 
+             place, time);
+    
+    azure_tx_send_topic(resp_topic, resp_payload);
+
+    // 4. Giải phóng bộ nhớ cJSON (BẮT BUỘC)
+    cJSON_Delete(root);
 }
 
 /* ================= ENTRY POINT ================= */
@@ -76,3 +98,9 @@ void azure_service_on_mqtt_message(
 
     handle_direct_method(topic, payload);
 }
+// test format from azure
+// {
+//     "sttus": 1,
+//     "place": "be1",
+//     "time": 5
+// }

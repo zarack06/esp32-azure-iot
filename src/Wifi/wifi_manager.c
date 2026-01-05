@@ -12,7 +12,7 @@
 #define WIFI_CONNECTED_BIT BIT0
 static const char *TAG = "WIFI";
 static EventGroupHandle_t s_wifi_event_group;
-
+static char err_buf[64];      
 static int s_retry_count = 0;
 static int s_current_wifi_index = 0; // 0 là wifi 1, 1 là wifi 2
 #define MAX_RETRY 5 // Thử lại n lần trước khi đổi qua wifi khác
@@ -25,8 +25,9 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         if (s_retry_count < MAX_RETRY) {
             esp_wifi_connect();
             s_retry_count++;
-            ESP_LOGI(TAG, "Đang thử kết nối lại lần %d...", s_retry_count);
-            set_last_error("wifi dis");
+            snprintf(err_buf, sizeof(err_buf), "WiFi reconnect (%d/%s)", s_retry_count,  (s_current_wifi_index == 0) ? WIFI_SSID : WIFI_SSID2);
+            ESP_LOGI(TAG, "Đang thử kết nối lại lần %d...", err_buf);
+            set_last_error(err_buf);
         } else {
             // Đã thử quá số lần, chuyển sang wifi khác
             s_retry_count = 0;
@@ -48,6 +49,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         s_retry_count = 0; // Reset bộ đếm khi kết nối thành công
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        set_last_error("System OK");
     }
 }
 
@@ -73,12 +75,14 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_wifi_start());
     esp_wifi_set_ps(WIFI_PS_NONE); // Tắt Power Save Mode
     // Chờ cho đến khi kết nối được (bất kể wifi nào)
-    xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+   // xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
     ESP_LOGI(TAG, "Wi-Fi đã kết nối thành công!");
+    set_last_error("System OK");
 }
 // Đồng bộ thời gian qua SNTP (Azure bắt buộc phải có thời gian đúng)
 void time_sync_init(void) {
     ESP_LOGI(TAG, "Đang lấy thời gian từ Internet...");
+    set_last_error("Đang lấy thời gian...");
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, "pool.ntp.org");
     esp_sntp_init();
@@ -90,6 +94,7 @@ void time_sync_init(void) {
         localtime_r(&now, &timeinfo);
     }
     ESP_LOGI(TAG, "Thời gian hiện tại: %s", asctime(&timeinfo));
+    set_last_error("System OK");
 }
 bool wifi_manager_is_connected(void)
 {
