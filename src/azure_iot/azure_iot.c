@@ -27,6 +27,7 @@ static void mqtt_event_handler(void *handler_args,
         is_mqtt_connected = true;
         esp_mqtt_client_subscribe(mqtt_handle,
             "$iothub/methods/POST/#", 1);
+        set_last_error("MQTT OK");
         break;
 
     case MQTT_EVENT_DATA:
@@ -63,6 +64,7 @@ void azure_iot_init(void)
         ESP_LOGE(TAG, "Azu client init failed");
         set_last_error("Azu client failed");
     }
+    set_last_error("Azu client OK");
 }
 
 void azure_iot_start(void)

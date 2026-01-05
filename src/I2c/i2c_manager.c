@@ -26,6 +26,7 @@ esp_err_t i2c_manager_init(void)
         ESP_LOGE(TAG, "Khoi tao I2C Bus that bai!");
         return err;
     }
+    set_last_error("System OK");
     return ESP_OK;
 }
   

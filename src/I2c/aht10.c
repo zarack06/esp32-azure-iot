@@ -16,7 +16,7 @@ esp_err_t aht10_init(void)
     if (global_i2c_bus_handle == NULL) {
         set_last_error("I2C Bus Not Init");
         return ESP_ERR_INVALID_STATE;
-    } 
+    }  
     // 2. Nếu chưa đăng ký AHT10 vào Bus thì đăng ký (chỉ làm 1 lần)
     if (aht10_dev_handle == NULL) {
         i2c_device_config_t dev_cfg = {
@@ -29,7 +29,7 @@ esp_err_t aht10_init(void)
         if (err != ESP_OK) {
             set_last_error("AHT10 Add Dev Fail");
             return err;
-        }
+        } 
     }
 
     // 3. Chờ cảm biến ổn định (AHT10 cần thời gian sau khi cấp nguồn 50~70)
@@ -57,7 +57,7 @@ esp_err_t aht10_init(void)
 
     // 5. Nếu mọi thứ OK, xóa thông báo lỗi trên LED
     ESP_LOGI(TAG, "AHT10 initialized successfully");
-    set_last_error("AHT10 Ready"); 
+    set_last_error("System OK");
     return ESP_OK;
 } 
 
@@ -69,8 +69,7 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     if (aht10_dev_handle == NULL) {
         set_last_error("AHT10 Not Init");
         return ESP_ERR_INVALID_STATE;
-    }
-
+    } 
     uint8_t measure_cmd[3] = {0xAC, 0x33, 0x00};
     uint8_t data[6];
 
@@ -82,8 +81,7 @@ esp_err_t aht10_read(float *temperature, float *humidity)
         if (err == ESP_ERR_TIMEOUT) set_last_error("AHT10 Trig Timeout");
         else set_last_error("AHT10 Trig Fail");
         return err;
-    }  
-
+    }   
     /* 2. Chờ cảm biến xử lý dữ liệu */
     vTaskDelay(pdMS_TO_TICKS(100)); 
 
@@ -94,8 +92,7 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     if (err != ESP_OK) {
         set_last_error("AHT10 Read Fail");
         return err;
-    }
-
+    } 
     /* 4. Kiểm tra trạng thái dữ liệu (Tùy chọn nhưng nên có) */
     // Bit 7 của data[0] là Busy indication (0: Ready, 1: Busy)
     if ((data[0] & 0x80) != 0) {
