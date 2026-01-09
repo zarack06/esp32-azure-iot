@@ -14,7 +14,7 @@ esp_err_t aht10_init(void)
 {    
     // 1. Kiểm tra Bus tổng đã sẵn sàng chưa
     if (global_i2c_bus_handle == NULL) {
-        set_last_error("I2C Bus Not Init");
+         update_sys_error(SYS_ERROR_AHT10, true, "I2C Bus Not Init");
         return ESP_ERR_INVALID_STATE;
     }  
     // 2. Nếu chưa đăng ký AHT10 vào Bus thì đăng ký (chỉ làm 1 lần)
@@ -27,7 +27,7 @@ esp_err_t aht10_init(void)
         
         esp_err_t err = i2c_master_bus_add_device(global_i2c_bus_handle, &dev_cfg, &aht10_dev_handle);
         if (err != ESP_OK) {
-            set_last_error("AHT10 Add Dev Fail");
+            update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Dev Fail init");
             return err;
         } 
     }
@@ -44,20 +44,22 @@ esp_err_t aht10_init(void)
     if (err != ESP_OK) {
         // Trả về lỗi chi tiết dựa trên mã lỗi hệ thống
         if (err == ESP_ERR_TIMEOUT) {
-            set_last_error("AHT10 Timeout");
+             update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Timeout init");
+             ESP_LOGI(TAG, "AHT10 Timeout");
         } else if (err == ESP_ERR_NOT_FOUND) {
-            set_last_error("AHT10 Not Found " ); // Không thấy địa chỉ 0x38 trên bus
+            update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Not Found init"); // Không thấy địa chỉ 0x38 trên bus
+            ESP_LOGI(TAG, "AHT10 Not Found ");
         } else {
             char buf[32];
             snprintf(buf, sizeof(buf), "AHT10 Err: 0x%x", err);
-            set_last_error(buf);
+            update_sys_error(SYS_ERROR_AHT10, true, buf);
+             ESP_LOGI(TAG, "AHT10 err %s ", buf);
         }
         return err;
     }
 
     // 5. Nếu mọi thứ OK, xóa thông báo lỗi trên LED
-    ESP_LOGI(TAG, "AHT10 initialized successfully");
-    set_last_error("System OK");
+    ESP_LOGI(TAG, "AHT10 initialized successfully"); 
     return ESP_OK;
 } 
 
@@ -67,7 +69,7 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     
     // Kiểm tra xem handle tạo ở hàm init chưa
     if (aht10_dev_handle == NULL) {
-        set_last_error("AHT10 Not Init");
+        update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Not Init");
         return ESP_ERR_INVALID_STATE;
     } 
     uint8_t measure_cmd[3] = {0xAC, 0x33, 0x00};
@@ -76,12 +78,10 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     /* 1. Kích hoạt đo (Trigger measurement) */
     // Driver : i2c_master_transmit(handle, buffer, size, timeout_ms)
     esp_err_t err = i2c_master_transmit(aht10_dev_handle, measure_cmd, 3, 100);
-    
     if (err != ESP_OK) {
-        if (err == ESP_ERR_TIMEOUT) set_last_error("AHT10 Trig Timeout");
-        else set_last_error("AHT10 Trig Fail");
+        update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Trigger Fail");
         return err;
-    }   
+    }
     /* 2. Chờ cảm biến xử lý dữ liệu */
     vTaskDelay(pdMS_TO_TICKS(100)); 
 
@@ -90,14 +90,14 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     err = i2c_master_receive(aht10_dev_handle, data, 6, 100);
     
     if (err != ESP_OK) {
-        set_last_error("AHT10 Read Fail");
+        update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Read Fail");
         return err;
     } 
     /* 4. Kiểm tra trạng thái dữ liệu (Tùy chọn nhưng nên có) */
     // Bit 7 của data[0] là Busy indication (0: Ready, 1: Busy)
-    if ((data[0] & 0x80) != 0) {
-        set_last_error("AHT10 Data Busy");
-        return ESP_ERR_INVALID_STATE;
+    if (data[0] == 0x00 && data[1] == 0x00) {
+        update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Data Empty");
+        return ESP_ERR_INVALID_RESPONSE;
     }
 
     /* 5. Tính toán giá trị */
@@ -113,7 +113,7 @@ esp_err_t aht10_read(float *temperature, float *humidity)
     *temperature = ((float)raw_temperature / 1048576.0f) * 200.0f - 50.0f;
 
     // Nếu đọc thành công, hiện trạng thái OK
-    set_last_error("System OK"); 
+    update_sys_error(SYS_ERROR_AHT10, false, NULL);
     
     return ESP_OK;
 }

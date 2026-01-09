@@ -29,7 +29,7 @@ static void azure_tx_task(void *pv)
             if (!connected)
             {
                 if (last_azure_state) {
-                    set_last_error("Azure disconnected");
+                     update_sys_error(SYS_ERROR_AZURE, true, "Azure disconnected");
                 }
                 last_azure_state = false;
                 continue;
@@ -46,7 +46,7 @@ static void azure_tx_task(void *pv)
                 break;
 
             default:
-                ESP_LOGW("AZ_TX", "Unknown msg type");
+                ESP_LOGW(TAG, "Unknown msg type");
                 break;
             }
         } 
@@ -67,8 +67,7 @@ void azure_tx_task_start(void)
     azure_tx_queue = xQueueCreate(10, sizeof(azure_msg_t));
     if (!azure_tx_queue)
     {
-        ESP_LOGE(TAG, "Failed to create azure_tx_queue");
-        set_last_error("Azure TX Queue Err");
+        ESP_LOGE(TAG, "Failed to create azure_tx_queue"); 
         return;
     }
 
@@ -110,12 +109,12 @@ bool azure_tx_send_topic(const char *topic, const char *payload)
 }
 static bool azure_tx_send(const azure_msg_t *msg)
 {
-    if (!azure_tx_queue || !msg) return false;
-
+    if (!azure_tx_queue || !msg) return false; 
     if (xQueueSend(azure_tx_queue, msg, 0) != pdPASS) {
-        set_last_error("Azure TX queue full");
-        ESP_LOGW("AZ_TX", "Queue full, drop msg type=%d", msg->type);
+        update_sys_error(SYS_ERROR_TX_QUEUE, true, "Azure TX queue full"); 
+        ESP_LOGW(TAG, "azure_tx_queue,  msg  =%s", msg->payload);
         return false;
     }
+    update_sys_error(SYS_ERROR_TX_QUEUE, false,  "");
     return true;
 }

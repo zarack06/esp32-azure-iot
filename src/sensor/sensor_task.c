@@ -8,6 +8,7 @@
 #include "oled.h"
 #include "oled_text.h"
 #include "sensor_task.h"
+#include "helper_time.h" // Chứa hàm set_last_error 
 
 static QueueHandle_t sensor_queue;
 static float last_read_temp = -999.0;
@@ -42,7 +43,7 @@ static void sensor_reading_task(void *pvParameters)
             oled_put_string_5x7(5, 0, buf);
             snprintf(buf, sizeof(buf), "Hum: %.2f %%        ", data.humidity);
             oled_put_string_5x7(6, 0, buf);
-
+            update_sys_error(SYS_ERROR_AHT10, false, NULL);
             // KIỂM TRA ĐIỀU KIỆN GỬI DỮ LIỆU
             bool threshold_exceeded = (last_read_temp != -999.0 && fabs(data.temperature - last_read_temp) > 0.5);
             bool timeout_reached = (xTaskGetTickCount() - last_send_time >= timeout_1min);
@@ -66,6 +67,7 @@ static void sensor_reading_task(void *pvParameters)
 
             if (error_count >= 3) {
                 ESP_LOGE("SENSOR", "Mất kết nối cảm biến! Đang thử init lại...");
+                update_sys_error(SYS_ERROR_AHT10, true, "AHT10 Read Fail");
                 aht10_init();
                 error_count = 0; 
                 vTaskDelay(pdMS_TO_TICKS(100));

@@ -27,7 +27,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             s_retry_count++;
             snprintf(err_buf, sizeof(err_buf), "WiFi reconnect (%d/%s)", s_retry_count,  (s_current_wifi_index == 0) ? WIFI_SSID : WIFI_SSID2);
             ESP_LOGI(TAG, "Đang thử kết nối lại lần %d...", err_buf);
-            set_last_error(err_buf);
+            update_sys_error(SYS_ERROR_WIFI, true, err_buf);
         } else {
             // Đã thử quá số lần, chuyển sang wifi khác
             s_retry_count = 0;
@@ -48,8 +48,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         s_retry_count = 0; // Reset bộ đếm khi kết nối thành công
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-        set_last_error("System OK");
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT); 
     }
 }
 
@@ -77,24 +76,36 @@ void wifi_init(void) {
     // Chờ cho đến khi kết nối được (bất kể wifi nào)
    // xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
     ESP_LOGI(TAG, "Wi-Fi đã kết nối thành công!");
-    set_last_error("System OK");
+    update_sys_error(SYS_ERROR_WIFI, false, NULL);
 }
 // Đồng bộ thời gian qua SNTP (Azure bắt buộc phải có thời gian đúng)
 void time_sync_init(void) {
     ESP_LOGI(TAG, "Đang lấy thời gian từ Internet...");
-    set_last_error("Đang lấy thời gian...");
+    update_sys_error(SYS_ERROR_SNTP, true, "Syncing Time...");
+    
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, "pool.ntp.org");
     esp_sntp_init();
+
     time_t now = 0;
     struct tm timeinfo = {};
-    while (timeinfo.tm_year < (2024 - 1900)) {
+    int retry = 0;
+    const int max_retry = 15; // Thử trong 15 giây
+
+    while (timeinfo.tm_year < (2025 - 1900) && ++retry < max_retry) {
+        ESP_LOGI(TAG, "Waiting for NTP... (%d/%d)", retry, max_retry);
         vTaskDelay(pdMS_TO_TICKS(1000));
         time(&now);
         localtime_r(&now, &timeinfo);
     }
-    ESP_LOGI(TAG, "Thời gian hiện tại: %s", asctime(&timeinfo));
-    set_last_error("System OK");
+
+    if (retry < max_retry) {
+        ESP_LOGI(TAG, "Thời gian OK: %s", asctime(&timeinfo));
+        update_sys_error(SYS_ERROR_SNTP, false, NULL);
+    } else {
+        ESP_LOGE(TAG, "NTP Timeout! Azure may fail.");
+        update_sys_error(SYS_ERROR_SNTP, true, "NTP Timeout");
+    }
 }
 bool wifi_manager_is_connected(void)
 {

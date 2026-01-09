@@ -5,8 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
+#endif 
 void wifi_init(void);
 bool wifi_manager_is_connected(void);
 bool wifi_wait_connected(unsigned long timeout_ms); 

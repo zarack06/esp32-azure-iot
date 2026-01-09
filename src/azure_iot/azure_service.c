@@ -71,7 +71,7 @@ static void handle_direct_method(const char *topic, const char *payload)
     }
 
     // --- Giữ nguyên phần phản hồi RID của bạn ---
-    char rid[16] = {0};
+    char rid[32] = {0};
     extract_rid(topic, rid, sizeof(rid));
     char resp_topic[64];
     snprintf(resp_topic, sizeof(resp_topic), "$iothub/methods/res/200/?$rid=%s", rid); 
