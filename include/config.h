@@ -1,4 +1,3 @@
-
 #ifndef CONFIG_H
 #define CONFIG_H 
  
@@ -12,17 +11,11 @@ extern "C" {
 #define AZ_DEVICE_ID "<PUT_YOUR_DEVICE_ID_HERE>"
 #define AZ_DEVICE_KEY "<PUT_YOURKEY?"
 #define AZ_PASSWORD "<<PUT_YOUR_CONNECTION_STRING_HERE>>" // Thay
-// Chứng chỉ DigiCert Global Root G2 (Azure sử dụng cert này)
-#define AZ_USERNAME "<PUT_YOUR_CONNECTION_STRING_HERE>" // Thay bằng Username bạn đã tạo
-
-#define AZURE_CA_PEM "<PUT_YOUR_CONNECTION_STRING_HERE>" // Thay bằng chuỗi chứng chỉ của bạn"
-
+ 
 // Publish 1 message every 5 seconds
 #define TELEMETRY_FREQUENCY_MILLISECS 5000 
 
-
-
-// WiFi credentials   
+// WiFi credentials
 #define WIFI_SSID "<PUT_YOUR_CONNECTION_STRING_HERE>" //Culun  
 #define WIFI_PASS "<PUT_YOUR_CONNECTION_STRING_HERE>"  
 // WiFi security type
@@ -38,9 +31,9 @@ extern "C" {
 #define AHT10_I2C_ADDRESS 0x38
 
 
-//===================
-
-
+//=================== led gipo
+#define LED_BUILTIN    GPIO_NUM_2
+#define SWITCH_GPIO    GPIO_NUM_16
 #ifdef __cplusplus
 }
 #endif 

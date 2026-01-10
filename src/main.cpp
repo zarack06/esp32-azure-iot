@@ -40,6 +40,8 @@ extern "C" void app_main(void)
     oled_init();
     oled_clear();
 
+    xTaskCreate( oled_update_err_task, "oled_err_task", 4096, NULL, 3, NULL );
+
     /* ================= Network & Time ================= */
     wifi_init();
     time_sync_init();
@@ -55,15 +57,6 @@ extern "C" void app_main(void)
 
     QueueHandle_t sensor_q = sensor_task_start();
     telemetry_task_start(sensor_q);
-
-    xTaskCreate(
-        oled_update_err,
-        "oled_err_task",
-        4096,
-        NULL,
-        3,
-        NULL
-    );
-
+ 
     ESP_LOGI(TAG, "===== System Boot Completed =====");
 }

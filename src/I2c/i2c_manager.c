@@ -22,11 +22,11 @@ esp_err_t i2c_manager_init(void)
     
     esp_err_t err = i2c_new_master_bus(&bus_config, &global_i2c_bus_handle);
     if (err != ESP_OK) {
-        set_last_error("Khoi tao I2C fail");
+         update_sys_error(SYS_ERROR_I2C, true, "Khoi tao I2C fail");
         ESP_LOGE(TAG, "Khoi tao I2C Bus that bai!");
         return err;
     }
-    set_last_error("System OK");
+    update_sys_error(SYS_ERROR_I2C, false, "System OK I2C");
     return ESP_OK;
 }
   
