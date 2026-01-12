@@ -53,9 +53,8 @@ static void handle_direct_method(const char *topic, const char *payload)
         return;
     }
 
-    // 2. Lấy dữ liệu từ các key
-    // Lưu ý: Tôi dùng "sttus" giống như chuỗi bạn đưa ra (có vẻ bạn gõ thiếu chữ 'a')
-    cJSON *status_obj = cJSON_GetObjectItem(root, "sttus");
+    // 2. Lấy dữ liệu từ các key 
+    cJSON *status_obj = cJSON_GetObjectItem(root, "status");
     cJSON *place_obj  = cJSON_GetObjectItem(root, "place");
     cJSON *time_obj   = cJSON_GetObjectItem(root, "time");
 
@@ -100,7 +99,7 @@ void azure_service_on_mqtt_message(
 }
 // test format from azure
 // {
-//     "sttus": 1,
+//     "status": 1,
 //     "place": "be1",
 //     "time": 5
 // }
