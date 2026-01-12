@@ -7,7 +7,8 @@
 #include "oled_text.h"
 #include "telemetry_task.h"
 #include "azure_tx_task.h"
-
+#include "helper_time.h"
+#include <time.h>
 static QueueHandle_t queue;
 
 static void telemetry_task(void *pv) {
@@ -28,14 +29,17 @@ static void telemetry_task(void *pv) {
              
             // 1. Ghi dấu mở mảng
             offset += snprintf(total_payload + offset, sizeof(total_payload) - offset, "[");
-            
+            time_t now = (time_t)helper_time_get_unix();
+            struct tm timeinfo;
+            localtime_r(&now, &timeinfo);  
             bool first = true;
             while (xQueueReceive(queue, &data, 0) == pdPASS) {
                 int remaining = sizeof(total_payload) - offset;
                 int written = snprintf(total_payload + offset, remaining, 
-                                       "%s{\"t\":%.2f,\"h\":%.2f}", 
-                                       first ? "" : ",", data.temperature, data.humidity);
-                
+                                       "%s{\"t\":%.2f,\"h\":%.2f, \"time\":\"%02d:%02d:%02d\"}", 
+                                       first ? "" : ",", data.temperature, data.humidity,
+                                       timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
                 if (written < remaining) {
                     offset += written;
                     sent_count++;
