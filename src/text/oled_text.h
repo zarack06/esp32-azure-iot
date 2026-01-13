@@ -3,10 +3,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-void oled_put_char_5x7(uint8_t page, uint8_t col, char c);
-void oled_put_char_8x16(uint8_t page, uint8_t col, char c);
+#endif 
 
 void oled_put_string_5x7(uint8_t page, uint8_t col, const char *str);
 void oled_put_string_8x16(uint8_t page, uint8_t col, const char *str);

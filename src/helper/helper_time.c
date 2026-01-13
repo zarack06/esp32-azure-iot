@@ -88,13 +88,7 @@ static void oled_display_error_multiline(uint8_t start_page, const char *msg) {
    static char line_buffer[22]; // OLED thường có 21 ký tự/dòng
     int msg_len = strlen(msg);
     int offset = 0;
-    uint8_t page = start_page;
-
-    // 1. Xóa sạch các dòng cũ dành cho lỗi (Dòng 1 và Dòng 2)
-    // Tôi dùng i < 3 vì bạn nói chỉ hiển thị đến dòng 3 (tức là 0, 1, 2)
-    for(int i = start_page; i < 3; i++) {
-        oled_put_string_5x7(i, 0, "                     "); 
-    }
+    uint8_t page = start_page; 
      ESP_LOGW(TAG,"msg = %s",msg);
     // 2. In lỗi, nhưng khống chế không cho vượt quá dòng 2
     while (offset < msg_len && page < 3) {

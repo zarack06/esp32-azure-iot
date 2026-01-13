@@ -6,8 +6,7 @@
 // #include "esp_log.h"
 #include "config.h" 
 
-#include "oled.h"
-#include <string.h>
+#include "oled.h" 
 #include "driver/i2c_master.h"
 #include "i2c_manager.h" // Nơi chứa global_i2c_bus_handle
 

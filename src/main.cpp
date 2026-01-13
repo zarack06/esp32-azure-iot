@@ -22,9 +22,8 @@ extern "C" void app_main(void)
     // Allow system & logs to stabilize after boot
     vTaskDelay(pdMS_TO_TICKS(500));
 
-    ESP_LOGI(TAG, "===== System Boot Start =====");
-
-    /* ================= Hardware Init ================= */
+    ESP_LOGI(TAG, "===== System Boot Start ====="); 
+    /* ================= Hardware Init ================= */ 
     system_init();
     gpios_all_init();
     hardware_init_timers();
@@ -39,7 +38,7 @@ extern "C" void app_main(void)
 
     oled_init();
     oled_clear();
-
+    // hàm hiển thị lỗi lên OLED
     xTaskCreate( oled_update_err_task, "oled_err_task", 4096, NULL, 3, NULL );
 
     /* ================= Network & Time ================= */
