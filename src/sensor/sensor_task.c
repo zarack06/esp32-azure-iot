@@ -2,8 +2,7 @@
 #include <math.h> 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
-#include "work_schedule.h" 
+#include "freertos/queue.h" 
 #include "aht10.h"
 #include "oled.h"
 #include "oled_text.h"

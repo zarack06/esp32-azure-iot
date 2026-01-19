@@ -5,7 +5,7 @@
 #include "wifi_manager.h"
 #include "oled.h"
 #include "oled_text.h"
-#include "telemetry_task.h"
+#include "telemetry/telemetry_task.h"
 #include "azure_tx_task.h"
 #include "helper_time.h"
 #include <time.h>

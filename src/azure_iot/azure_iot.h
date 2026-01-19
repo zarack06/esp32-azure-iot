@@ -3,6 +3,7 @@
 #ifndef AZURE_IOT_H
 #define AZURE_IOT_H
 #include <stdbool.h>
+#include "mqtt_client.h"
 #ifdef __cplusplus
 extern "C" {
 #endif  
@@ -10,6 +11,7 @@ extern "C" {
 void azure_iot_init(void);
 void azure_iot_start(void); 
 bool azure_iot_is_connected(void);  
+esp_mqtt_client_handle_t get_mqtt(void);
 #ifdef __cplusplus
 }
 #endif

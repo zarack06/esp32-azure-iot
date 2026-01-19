@@ -8,6 +8,7 @@
 #include <string.h>            // Để dùng strlen, memcpy
 #include "oled_text.h" 
 #include <time.h>
+#include <app_version.h>
 #define TAG "HELPER_TIME" 
 
 static uint32_t current_errors = 0; // Biến lưu tổng hợp các lỗi đang tồn tại
@@ -107,7 +108,9 @@ static void oled_display_error_multiline(uint8_t start_page, const char *msg) {
 
 void oled_update_err_task(void *pv) {
     while (1) {
-        oled_put_string_5x7(0, 0, "System Status:     "); 
+        static char Line_version[22];
+         snprintf(Line_version, sizeof(Line_version), "ver: %s", APP_VERSION);
+        oled_put_string_5x7(0, 0, Line_version); 
         oled_display_error_multiline(1, get_last_error());
         
         // có thể in thêm mã Hex của current_errors để debug
@@ -127,7 +130,6 @@ void oled_update_err_task(void *pv) {
             if (current_errors & SYS_ERROR_MQTT)  strcat(quick_stat, " MQTT");
             if (current_errors & SYS_ERROR_BUFFER)  strcat(quick_stat, " BUF");
             // Thêm các khoảng trắng để xóa dấu vết cũ
-            strcat(quick_stat, "       "); 
         }
         oled_put_string_5x7(7, 0, quick_stat);  
         vTaskDelay(pdMS_TO_TICKS(5000)); // Cứ 5 giây cập nhật một lần 

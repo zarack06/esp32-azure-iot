@@ -9,8 +9,9 @@
 #include "mbedtls/base64.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
+#include "ota_manager.h"
 #include <time.h>
-#define TAG "AZURE_IOT"   
+#define TAG "AZURE_IOT"
 static az_iot_hub_client client;
 static esp_mqtt_client_handle_t mqtt_handle; 
 static bool is_mqtt_connected = false;
@@ -19,8 +20,8 @@ static char az_sas_token[512]; // Tăng kích thước buffer cho an toàn
 extern const uint8_t azure_ca_pem_start[] asm("_binary_azure_ca_pem_start");
 extern const uint8_t azure_ca_pem_end[]   asm("_binary_azure_ca_pem_end"); 
 
-#define SAS_VALID_SECONDS      (10 * 60)      // 1 giờ  test  10'
-#define SAS_RENEW_MARGIN       (2 * 60)      // renew trước 10 phút  test
+#define SAS_VALID_SECONDS      (60 * 60)      // 1 giờ 
+#define SAS_RENEW_MARGIN       (10 * 60)      // renew trước 10 phút   
 static esp_mqtt_client_config_t mqtt_cfg = { 
     .broker.verification.certificate = (const char *)azure_ca_pem_start,
     .credentials.client_id = AZ_DEVICE_ID, 
@@ -38,7 +39,10 @@ static SemaphoreHandle_t sas_mutex;
 // Hàm bổ trợ để ký HMAC-SHA256 (Azure yêu cầu bước này)
 #include "mbedtls/base64.h"
 #include "mbedtls/md.h"
-
+esp_mqtt_client_handle_t get_mqtt(void)
+{
+    return mqtt_handle;
+}
 static az_result sign_signature_base64(
     az_span device_key_base64,
     az_span signature,
@@ -250,11 +254,21 @@ static void mqtt_event_handler(void *handler_args,
             ESP_LOGI(TAG, "MQTT reconnected after SAS renew"); 
         } else {
             ESP_LOGI(TAG, "MQTT connected");
-            is_mqtt_connected = true; 
+            is_mqtt_connected = true;
+            ota_report_version();   // report firmware lên Twin 
             xEventGroupClearBits(evt, EVT_MQTT_BUSY);
             xEventGroupSetBits(evt, EVT_MQTT_IDLE);
             esp_mqtt_client_subscribe(mqtt_handle, "$iothub/methods/POST/#", 1);
+            esp_mqtt_client_subscribe(mqtt_handle, "$iothub/twin/PATCH/properties/desired/#", 1);
+            esp_mqtt_client_subscribe(mqtt_handle, "$iothub/twin/res/#", 1);
+             esp_mqtt_client_publish( mqtt_handle, "$iothub/twin/GET/?$rid=1",  NULL,  0, 1, 0);
+            // esp_mqtt_client_subscribe(mqtt_handle, "devices/" AZ_DEVICE_ID "/messages/devicebound/#", 1);
             update_sys_error( SYS_ERROR_MQTT, false, "MQTT Connected"); 
+            //  Chức năng     	Topic
+            // Direct Method	$iothub/methods/POST/#
+            // Twin Desired	    $iothub/twin/PATCH/properties/desired/#
+            // Twin Response	$iothub/twin/res/#
+            // C2D message	    devices/{id}/messages/devicebound/#
         }
         break;
 
@@ -351,7 +365,6 @@ void azure_iot_publish_payload(const char *payload) {
         topic, 
         sizeof(topic), 
         NULL);
-
     if (!az_result_succeeded(res)) {
         if (last_err != res) {
             ESP_LOGW(TAG,"Telemetry topic error changed: 0x%08x",res);
@@ -398,7 +411,7 @@ void azure_iot_publish_topic(const char *topic, const char *payload)
         payload,
         0,
         1,
-        0);   
+        0);
     xEventGroupClearBits(evt, EVT_MQTT_BUSY);
     xEventGroupSetBits(evt, EVT_MQTT_IDLE);
     is_mqtt_connected = true; 

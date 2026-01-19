@@ -3,7 +3,7 @@
 #include "esp_log.h"
 #include "azure_iot/azure_iot.h"
 #include "azure_iot/azure_tx_task.h"
-
+#include "azure_twin.h"
 #define TAG "AZURE_SERVICE"
 
 static void (*led_cb)(int status, const char* place, int time) = NULL;
@@ -88,14 +88,57 @@ static void handle_direct_method(const char *topic, const char *payload)
 
 /* ================= ENTRY POINT ================= */
 
+static void azure_direct_method_on_message(
+    const char *topic, int topic_len,
+    const char *payload, int payload_len)
+{
+    ESP_LOGI(TAG, "Azure message direct: %.*s",
+             payload_len, payload);
+
+    handle_direct_method(topic, payload);
+}
+
 void azure_service_on_mqtt_message(
     const char *topic, int topic_len,
     const char *payload, int payload_len)
 {
-    ESP_LOGI(TAG, "Azure message: %.*s",
+    ESP_LOGI(TAG, "Azure message mqtt: %.*s",
              payload_len, payload);
 
-    handle_direct_method(topic, payload);
+      /* Direct Method */
+    if (strncmp(topic,
+        "$iothub/methods/POST/",
+        strlen("$iothub/methods/POST/")) == 0)
+    {
+        azure_direct_method_on_message(
+            topic, topic_len,
+            payload, payload_len);
+        return;
+    }
+
+    /* Device Twin */
+    if (strncmp(topic,
+        "$iothub/twin/",
+        strlen("$iothub/twin/")) == 0)
+    {  
+        ESP_LOGI(TAG, "Azure message twin: %.*s", payload_len, payload);
+        azure_twin_on_mqtt_message(
+            topic, topic_len,
+            payload, payload_len);
+        return;
+    }
+
+    /* Cloud-to-Device message */
+    if (strncmp(topic,
+        "devices/",
+        strlen("devices/")) == 0)
+    {
+         ESP_LOGI(TAG, "Cloud-to-Device message: %.*s",   payload_len, payload);
+        // azure_c2d_on_message(     // chưa cần
+        //     topic, topic_len,
+        //     payload, payload_len);
+        return;
+    }
 }
 // test format from azure
 // {

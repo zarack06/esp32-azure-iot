@@ -12,21 +12,26 @@ extern "C" {
 #include "telemetry/telemetry_task.h"
 #include "azure_tx_task.h"
 #include "helper_time.h"
-#include "i2c_manager.h"
+#include "i2c_manager.h" 
+// #include "ota/ota_manager.h"
+#include "azure_iot/ota/ota_manager.h"
+
 }
 
-static const char *TAG = "APP_MAIN";
+static const char *TAG = "APP_MAIN";  
 
 extern "C" void app_main(void)
 {
     // Allow system & logs to stabilize after boot
     vTaskDelay(pdMS_TO_TICKS(500));
-
+    // Confirm previous OTA if needed
+    ota_manager_confirm_if_needed();
+    ota_manager_init();
     ESP_LOGI(TAG, "===== System Boot Start ====="); 
     /* ================= Hardware Init ================= */ 
     system_init();
     gpios_all_init();
-    hardware_init_timers();
+    hardware_init_timers(); 
 
     /* ================= I2C & Peripherals ================= */
     i2c_manager_init();
